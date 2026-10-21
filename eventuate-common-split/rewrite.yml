@@ -13,6 +13,9 @@ recipeList:
   - io.eventuate.common.split.MigrateToEventuateCommonZookeeper
   # After MigrateToEventuateCommonZookeeper, which adds EVENTUATE_COMMON_ZOOKEEPER_VERSION after the EVENTUATE_COMMON_VERSION line that this recipe replaces
   - io.eventuate.common.split.MigrateToEventuateCommonDatabase
+  - io.eventuate.common.split.MigrateToEventuateCommonEventuateLocal
+  # Last, because the recipes above add each new BOM import next to the eventuate-common-bom import
+  - io.eventuate.common.split.RemoveEventuateCommonBomImport
 ---
 type: specs.openrewrite.org/v1beta/recipe
 name: io.eventuate.common.split.AddEventuateCommonSplitDependencies
@@ -286,6 +289,36 @@ recipeList:
   - org.openrewrite.text.FindAndReplace:
       find: '^([ \t]*)(\w+) platform\("io\.eventuate\.common:eventuate-common-bom:[^"]*"\)$(?![\s\S]*eventuate-common-database-bom)'
       replace: "$0\n$1$2 platform(\"io.eventuate.common.database:eventuate-common-database-bom:\\\${eventuateCommonDatabaseVersion}\")"
+      regex: true
+      multiline: true
+      filePattern: '**/build.gradle'
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.eventuate.common.split.MigrateToEventuateCommonEventuateLocal
+displayName: Migrate to eventuate-common-eventuate-local
+description: Changes the dependencies and BOM imports of eventuate-common's Eventuate Local module to those of eventuate-common-eventuate-local. Its package, io.eventuate.common.eventuate.local, is unchanged.
+recipeList:
+  - org.openrewrite.text.FindAndReplace:
+      find: 'io\.eventuate\.common:(eventuate-common-eventuate-local):\$\{?eventuateCommonVersion\}?'
+      replace: 'io.eventuate.common.eventuate.local:$1:\$eventuateCommonEventuateLocalVersion'
+      regex: true
+      filePattern: '**/build.gradle'
+  # Adds the BOM import after the eventuate-common-bom import, unless it is already there
+  - org.openrewrite.text.FindAndReplace:
+      find: '^([ \t]*)(\w+) platform\("io\.eventuate\.common:eventuate-common-bom:[^"]*"\)$(?![\s\S]*eventuate-common-eventuate-local-bom)'
+      replace: "$0\n$1$2 platform(\"io.eventuate.common.eventuate.local:eventuate-common-eventuate-local-bom:\\\${eventuateCommonEventuateLocalVersion}\")"
+      regex: true
+      multiline: true
+      filePattern: '**/build.gradle'
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.eventuate.common.split.RemoveEventuateCommonBomImport
+displayName: Remove the import of eventuate-common-bom
+description: Removes the import of eventuate-common-bom, which the imports of the seven BOMs split from it replace.
+recipeList:
+  - org.openrewrite.text.FindAndReplace:
+      find: '^[ \t]*\w+ platform\("io\.eventuate\.common:eventuate-common-bom:[^"]*"\)\r?\n'
+      replace: ''
       regex: true
       multiline: true
       filePattern: '**/build.gradle'
