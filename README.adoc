@@ -1,3 +1,24 @@
 = OpenRewrite recipes
 
 I created this repository to accompany my article on OpenRewrite: https://microservices.io/post/architecture/2024/08/06/eliminating-tedium-with-openrewrite.html[Eliminating tedium with OpenRewrite].
+
+== Migrating to the eventuate-common split
+
+`eventuate-common-split/rewrite.yml` contains the recipe `io.eventuate.common.split.MigrateToEventuateCommonSplit`, which migrates a consumer of eventuate-common to the repositories split from it.
+So far it migrates the consumer to `eventuate-common-id`:
+
+* It renames the package `io.eventuate.common.spring.id` to `io.eventuate.common.id.spring`.
+* In each `build.gradle`, it changes the dependencies on `io.eventuate.common:eventuate-common-id` and `io.eventuate.common:eventuate-common-spring-id` to `io.eventuate.common.id:<module>:$eventuateCommonIdVersion`.
+* In each `build.gradle` that imports `eventuate-common-bom` as a platform, it adds an import of `io.eventuate.common.id:eventuate-common-id-bom:${eventuateCommonIdVersion}`.
+
+Run it from the consumer's root directory:
+
+[source,sh]
+----
+$OPENREWRITE_DIR/_run-rewrite-recipe.sh \
+    --config-file $OPENREWRITE_DIR/eventuate-common-split/rewrite.yml \
+    --recipe io.eventuate.common.split.MigrateToEventuateCommonSplit
+----
+
+The recipe does not change `gradle.properties`.
+Add `eventuateCommonIdVersion` to it before building the consumer or running the recipe again.

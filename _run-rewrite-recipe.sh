@@ -2,6 +2,7 @@
 
 REFRESH_DEPS=""
 RECIPE_NAME=""
+CONFIG_FILE=""
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -14,15 +15,29 @@ while [[ $# -gt 0 ]]; do
             RECIPE_NAME="$2"
             shift 2
             ;;
+        --config-file)
+            CONFIG_FILE="$2"
+            shift 2
+            ;;
         *)
             echo "Unknown option: $1"
-            echo "Usage: $0 [--refresh-dependencies] [--recipe recipeName]"
+            echo "Usage: $0 [--refresh-dependencies] [--recipe recipeName] [--config-file path]"
             exit 1
             ;;
     esac
 done
 
 temp_init_file=$(mktemp)
+
+REWRITE_CONFIG=""
+if [ -n "$CONFIG_FILE" ]; then
+    if [ ! -f "$CONFIG_FILE" ]; then
+        echo "Error: config file not found: $CONFIG_FILE"
+        exit 1
+    fi
+    CONFIG_FILE="$(cd "$(dirname "$CONFIG_FILE")" && pwd)/$(basename "$CONFIG_FILE")"
+    REWRITE_CONFIG="rewrite { configFile = file(\"$CONFIG_FILE\") }"
+fi
 
 # If recipe name was not provided via --recipe, get it from rewrite.yml
 if [ -z "$RECIPE_NAME" ]; then
@@ -45,10 +60,11 @@ initscript {
     repositories {
         mavenLocal()
         maven { url "https://plugins.gradle.org/m2" }
+        mavenCentral()
     }
     dependencies {
-        classpath("org.openrewrite:plugin:latest.release")
-        classpath("net.chrisrichardson.openrewrite.recipes:add-imports-from-package:0.1.0-SNAPSHOT")
+        // 7.40.0 and 7.41.0 depend on rewrite-bom 8.91.0, which is not in Maven Central
+        classpath("org.openrewrite:plugin:7.39.0")
     }
 }
 
@@ -56,20 +72,12 @@ rootProject {
     plugins.apply(org.openrewrite.gradle.RewritePlugin)
     repositories {
         mavenLocal()
+        mavenCentral()
     }
     dependencies {
         rewrite("org.openrewrite:rewrite-java:latest.release")
-        rewrite("net.chrisrichardson.openrewrite.recipes:add-imports-from-package:0.1.0-SNAPSHOT")
     }
-
-
-    afterEvaluate {
-        if (repositories.isEmpty()) {
-            repositories {
-                mavenCentral()
-            }
-        }
-    }
+    $REWRITE_CONFIG
 }
 EOF
 
