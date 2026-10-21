@@ -1,0 +1,368 @@
+= Migrating to the eventuate-common split
+:toc:
+
+eventuate-common is split into seven repositories.
+Each one publishes its modules under its own group, with its own version properties.
+Some packages are renamed, and the database and ZooKeeper images get their own Docker Compose variables.
+
+The split is a clean break.
+The old packages and the `io.eventuate.common` coordinates are not kept, even deprecated.
+eventuate-common itself is not changed, so a consumer that has not been migrated keeps building against `0.23.0.BUILD-SNAPSHOT` of eventuate-common.
+
+The recipe `io.eventuate.common.split.MigrateToEventuateCommonSplit`, in `rewrite.yml` in this directory, makes the changes described below.
+
+The Quarkus platform repositories, such as `eventuate-common-quarkus`, and the Quarkus and Micronaut example projects are not migrated yet.
+They stay on eventuate-common.
+
+== Running the recipe
+
+Clone this repository and set `OPENREWRITE_DIR` to its directory.
+Then run the recipe from the consumer's root directory:
+
+[source,sh]
+----
+$OPENREWRITE_DIR/_run-rewrite-recipe.sh \
+    --init-script $OPENREWRITE_DIR/eventuate-common-split/rewrite-init.gradle \
+    --config-file $OPENREWRITE_DIR/eventuate-common-split/rewrite.yml \
+    --recipe io.eventuate.common.split.MigrateToEventuateCommonSplit
+----
+
+The script applies the OpenRewrite Gradle plugin with an init script, so the consumer's build files don't change to run it.
+It writes Gradle's output to a log file in `/var/tmp`.
+
+`rewrite-init.gradle` is needed when the consumer's dependencies, such as `eventuate-common-messaging`, have already been migrated.
+Without it, Gradle fails with a capability conflict between the old and new modules, or the consumer fails to compile, before the recipe runs.
+
+The recipe does not change `gradle.properties`.
+After it runs:
+
+. Add to `gradle.properties` each version property, listed below, that the build files now use.
+. Remove `eventuateCommonVersion` and `eventuateCommonImageVersion`.
+. Build the consumer, for example with `./gradlew testClasses`.
+
+Running the recipe a second time changes nothing.
+
+== What changes
+
+A consumer changes in five places:
+
+* *Dependencies.* Each dependency on an `io.eventuate.common:<module>:${eventuateCommonVersion}` artifact changes to the group and version property of the repository that now publishes the module.
+  The module names do not change.
+* *BOM imports.* A `build.gradle` that imports `io.eventuate.common:eventuate-common-bom` as a platform imports the seven new BOMs instead.
+* *Packages.* The packages in the tables below are renamed.
+* *Testcontainers.* The database containers and `EventuateZookeeperContainer` move out of `eventuate-common-testcontainers` into new modules.
+  The recipe adds a dependency on the new module to a Gradle project that uses one of the moved classes.
+* *Images.* The Compose variable `EVENTUATE_COMMON_VERSION` is replaced by `EVENTUATE_COMMON_DATABASE_VERSION` for the database images and `EVENTUATE_COMMON_ZOOKEEPER_VERSION` for `eventuate-zookeeper`.
+
+Each new module also declares the capability of its old `io.eventuate.common` coordinates in its Gradle module metadata.
+A Gradle build that gets both the old and the new module, for example through a dependency that has not been migrated, fails with a capability conflict that names the two modules, instead of putting two copies of the classes on the classpath.
+Maven builds do not read the capabilities.
+
+== The new repositories
+
+=== eventuate-common-id
+
+Group:: `io.eventuate.common.id`
+Version property:: `eventuateCommonIdVersion`
+BOM:: `io.eventuate.common.id:eventuate-common-id-bom`
+
+[cols="1,1"]
+|===
+| Old coordinates | New coordinates
+
+| `io.eventuate.common:eventuate-common-id`
+| `io.eventuate.common.id:eventuate-common-id`
+
+| `io.eventuate.common:eventuate-common-spring-id`
+| `io.eventuate.common.id:eventuate-common-spring-id`
+|===
+
+[cols="1,1,1"]
+|===
+| Module | Old package | New package
+
+| `eventuate-common-id`
+| `io.eventuate.common.id`
+| unchanged
+
+| `eventuate-common-spring-id`
+| `io.eventuate.common.spring.id`
+| `io.eventuate.common.id.spring`
+|===
+
+=== eventuate-common-json
+
+Group:: `io.eventuate.common.json`
+Version property:: `eventuateCommonJsonVersion`
+BOM:: `io.eventuate.common.json:eventuate-common-json-bom`
+
+[cols="1,1"]
+|===
+| Old coordinates | New coordinates
+
+| `io.eventuate.common:eventuate-common-json-mapper`
+| `io.eventuate.common.json:eventuate-common-json-mapper`
+|===
+
+No package is renamed. `io.eventuate.common.json.mapper` is unchanged.
+
+=== eventuate-common-coordination-leadership
+
+Group:: `io.eventuate.common.coordination.leadership`
+Version property:: `eventuateCommonCoordinationLeadershipVersion`
+BOM:: `io.eventuate.common.coordination.leadership:eventuate-common-coordination-leadership-bom`
+
+[cols="1,1"]
+|===
+| Old coordinates | New coordinates
+
+| `io.eventuate.common:eventuate-common-coordination-leadership`
+| `io.eventuate.common.coordination.leadership:eventuate-common-coordination-leadership`
+
+| `io.eventuate.common:eventuate-common-coordination-leadership-tests`
+| `io.eventuate.common.coordination.leadership:eventuate-common-coordination-leadership-tests`
+|===
+
+[cols="1,1,1"]
+|===
+| Module | Old package | New package
+
+| `eventuate-common-coordination-leadership`
+| `io.eventuate.coordination.leadership`
+| `io.eventuate.common.coordination.leadership`
+
+| `eventuate-common-coordination-leadership-tests`
+| `io.eventuate.coordination.leadership.tests`
+| `io.eventuate.common.coordination.leadership.tests`
+|===
+
+=== eventuate-common-testcontainers
+
+Group:: `io.eventuate.common.testcontainers`
+Version property:: `eventuateCommonTestcontainersVersion`
+BOM:: `io.eventuate.common.testcontainers:eventuate-common-testcontainers-bom`
+
+[cols="1,1"]
+|===
+| Old coordinates | New coordinates
+
+| `io.eventuate.common:eventuate-common-testcontainers`
+| `io.eventuate.common.testcontainers:eventuate-common-testcontainers`
+|===
+
+The module now contains only the generic container classes: `EventuateGenericContainer`, `PropertyProvidingContainer`, `PreStartContainerEnv`, `ContainerUtil`, `ContainerTestUtil`, `ReusableNetworkFactory` and `AliasingDynamicPropertyRegistry`.
+Their package, `io.eventuate.common.testcontainers`, is unchanged.
+The database containers move to `eventuate-common-database-testcontainers` and `EventuateZookeeperContainer` to `eventuate-common-zookeeper-testcontainers`.
+
+=== eventuate-common-zookeeper
+
+Group:: `io.eventuate.common.zookeeper`
+Version property:: `eventuateCommonZookeeperVersion`
+Image version property:: `eventuateCommonZookeeperImageVersion`
+Compose variable:: `EVENTUATE_COMMON_ZOOKEEPER_VERSION`
+Image:: `eventuateio/eventuate-zookeeper`
+BOM:: `io.eventuate.common.zookeeper:eventuate-common-zookeeper-bom`
+
+[cols="1,1"]
+|===
+| Old coordinates | New coordinates
+
+| `io.eventuate.common:eventuate-common-coordination-leadership-zookeeper`
+| `io.eventuate.common.zookeeper:eventuate-common-coordination-leadership-zookeeper`
+
+| none, `EventuateZookeeperContainer` was in `io.eventuate.common:eventuate-common-testcontainers`
+| `io.eventuate.common.zookeeper:eventuate-common-zookeeper-testcontainers`
+|===
+
+[cols="1,1,1"]
+|===
+| Module | Old package | New package
+
+| `eventuate-common-coordination-leadership-zookeeper`
+| `io.eventuate.coordination.leadership.zookeeper`
+| `io.eventuate.common.zookeeper`
+
+| `eventuate-common-zookeeper-testcontainers`
+| `io.eventuate.common.testcontainers`
+| `io.eventuate.common.zookeeper.testcontainers`
+|===
+
+The recipe changes the classes `ZkLeaderSelector`, `ZkLeadershipController` and `EventuateZookeeperContainer`, rather than the whole packages, because a consumer's own classes, such as `KafkaLeaderSelector` in eventuate-messaging-kafka, are in `io.eventuate.coordination.leadership.zookeeper` too.
+
+=== eventuate-common-database
+
+Group:: `io.eventuate.common.database`
+Version property:: `eventuateCommonDatabaseVersion`
+Image version property:: `eventuateCommonDatabaseImageVersion`
+Compose variable:: `EVENTUATE_COMMON_DATABASE_VERSION`
+Images:: `eventuateio/eventuate-mysql8`, `eventuateio/eventuate-postgres`, `eventuateio/eventuate-mssql`, `eventuateio/eventuate-vanilla-mysql8`, `eventuateio/eventuate-vanilla-postgres`
+BOM:: `io.eventuate.common.database:eventuate-common-database-bom`
+
+[cols="1,1"]
+|===
+| Old coordinates | New coordinates
+
+| `io.eventuate.common:eventuate-common-jdbc`
+| `io.eventuate.common.database:eventuate-common-jdbc`
+
+| `io.eventuate.common:eventuate-common-jdbc-tests`
+| `io.eventuate.common.database:eventuate-common-jdbc-tests`
+
+| `io.eventuate.common:eventuate-common-reactive-jdbc`
+| `io.eventuate.common.database:eventuate-common-reactive-jdbc`
+
+| `io.eventuate.common:eventuate-common-common-spring-jdbc`
+| `io.eventuate.common.database:eventuate-common-common-spring-jdbc`
+
+| `io.eventuate.common:eventuate-common-spring-jdbc`
+| `io.eventuate.common.database:eventuate-common-spring-jdbc`
+
+| `io.eventuate.common:eventuate-common-spring-reactive-jdbc`
+| `io.eventuate.common.database:eventuate-common-spring-reactive-jdbc`
+
+| `io.eventuate.common:eventuate-common-in-memory-database`
+| `io.eventuate.common.database:eventuate-common-in-memory-database`
+
+| `io.eventuate.common:eventuate-common-common-spring-in-memory-database`
+| `io.eventuate.common.database:eventuate-common-common-spring-in-memory-database`
+
+| `io.eventuate.common:eventuate-common-spring-in-memory-database`
+| `io.eventuate.common.database:eventuate-common-spring-in-memory-database`
+
+| `io.eventuate.common:eventuate-common-flyway`
+| `io.eventuate.common.database:eventuate-common-flyway`
+
+| none, the database containers were in `io.eventuate.common:eventuate-common-testcontainers`
+| `io.eventuate.common.database:eventuate-common-database-testcontainers`
+|===
+
+[cols="1,1,1"]
+|===
+| Module | Old package | New package
+
+| `eventuate-common-jdbc`
+| `io.eventuate.common.jdbc`, `io.eventuate.common.jdbc.sqldialect`
+| `io.eventuate.common.database.jdbc`, `io.eventuate.common.database.jdbc.sqldialect`
+
+| `eventuate-common-jdbc-tests`
+| `io.eventuate.common.jdbc.tests`
+| `io.eventuate.common.database.jdbc.tests`
+
+| `eventuate-common-reactive-jdbc`
+| `io.eventuate.common.reactive.jdbc`
+| `io.eventuate.common.database.reactive.jdbc`
+
+| `eventuate-common-common-spring-jdbc`, `eventuate-common-spring-jdbc`
+| `io.eventuate.common.spring.jdbc`, `io.eventuate.common.spring.jdbc.sqldialect`
+| `io.eventuate.common.database.spring.jdbc`, `io.eventuate.common.database.spring.jdbc.sqldialect`
+
+| `eventuate-common-spring-reactive-jdbc`
+| `io.eventuate.common.spring.jdbc.reactive`
+| `io.eventuate.common.database.spring.jdbc.reactive`
+
+| `eventuate-common-in-memory-database`
+| `io.eventuate.common.inmemorydatabase`
+| `io.eventuate.common.database.inmemorydatabase`
+
+| `eventuate-common-common-spring-in-memory-database`
+| `io.eventuate.common.common.spring.inmemorydatabase`
+| `io.eventuate.common.database.common.spring.inmemorydatabase`
+
+| `eventuate-common-spring-in-memory-database`
+| `io.eventuate.common.spring.inmemorydatabase`
+| `io.eventuate.common.database.spring.inmemorydatabase`
+
+| `eventuate-common-flyway`
+| `io.eventuate.common.flyway`
+| `io.eventuate.common.database.flyway`
+
+| `eventuate-common-database-testcontainers`
+| `io.eventuate.common.testcontainers`
+| `io.eventuate.common.database.testcontainers`
+|===
+
+The database containers that move to `io.eventuate.common.database.testcontainers` are `AbstractEventuateMySqlContainer`, `AbstractEventuatePostgresContainer`, `AbstractEventuateMsSqlContainer`, `EventuateMySqlContainer`, `EventuatePostgresContainer`, `EventuateVanillaMySqlContainer`, `EventuateVanillaPostgresContainer`, `EventuateVanillaMsSqlContainer`, `EventuateDatabaseContainer`, `DatabaseContainerFactory`, `DatabaseContainerType`, `DatabaseContainerTypeRegistry`, `MySqlDatabaseType`, `PostgresDatabaseType`, `MsSqlDatabaseType` and `DatabaseCredentials`.
+
+The recipe renames only the packages listed, not their subpackages, so a consumer's own subpackage, such as `io.eventuate.common.flyway.initialization`, is unchanged.
+
+=== eventuate-common-eventuate-local
+
+Group:: `io.eventuate.common.eventuate.local`
+Version property:: `eventuateCommonEventuateLocalVersion`
+BOM:: `io.eventuate.common.eventuate.local:eventuate-common-eventuate-local-bom`
+
+[cols="1,1"]
+|===
+| Old coordinates | New coordinates
+
+| `io.eventuate.common:eventuate-common-eventuate-local`
+| `io.eventuate.common.eventuate.local:eventuate-common-eventuate-local`
+|===
+
+No package is renamed. `io.eventuate.common.eventuate.local` is unchanged.
+
+== Version properties and Compose variables
+
+Before the split, consumers used two Gradle properties: `eventuateCommonVersion` for the artifacts and `eventuateCommonImageVersion` for the images.
+After the migration, no build file uses them.
+
+[cols="1,1,1,1"]
+|===
+| Repository | Version property | Image version property | Compose variable
+
+| `eventuate-common-id`
+| `eventuateCommonIdVersion`
+|
+|
+
+| `eventuate-common-json`
+| `eventuateCommonJsonVersion`
+|
+|
+
+| `eventuate-common-coordination-leadership`
+| `eventuateCommonCoordinationLeadershipVersion`
+|
+|
+
+| `eventuate-common-testcontainers`
+| `eventuateCommonTestcontainersVersion`
+|
+|
+
+| `eventuate-common-zookeeper`
+| `eventuateCommonZookeeperVersion`
+| `eventuateCommonZookeeperImageVersion`
+| `EVENTUATE_COMMON_ZOOKEEPER_VERSION`
+
+| `eventuate-common-database`
+| `eventuateCommonDatabaseVersion`
+| `eventuateCommonDatabaseImageVersion`
+| `EVENTUATE_COMMON_DATABASE_VERSION`
+
+| `eventuate-common-eventuate-local`
+| `eventuateCommonEventuateLocalVersion`
+|
+|
+|===
+
+The image names do not change.
+Their tags follow the version of the repository that builds them, which continues eventuate-common's versions, such as `eventuate-mysql8:0.23.0.BUILD-SNAPSHOT`.
+
+In the Compose files, the recipe changes `${EVENTUATE_COMMON_VERSION}` to `${EVENTUATE_COMMON_DATABASE_VERSION}` in the tags of the database images, and to `${EVENTUATE_COMMON_ZOOKEEPER_VERSION}` in the tag of `eventuate-zookeeper`.
+In `build.gradle`, it changes
+
+[source,groovy]
+----
+environment.put "EVENTUATE_COMMON_VERSION", eventuateCommonImageVersion
+----
+
+to
+
+[source,groovy]
+----
+environment.put "EVENTUATE_COMMON_DATABASE_VERSION", eventuateCommonDatabaseImageVersion
+environment.put "EVENTUATE_COMMON_ZOOKEEPER_VERSION", eventuateCommonZookeeperImageVersion
+----
+
+Check any other place that sets `EVENTUATE_COMMON_VERSION`, such as a shell script or a CircleCI config, by hand: the recipe changes only `build.gradle` and `docker-compose*.yml` files.
