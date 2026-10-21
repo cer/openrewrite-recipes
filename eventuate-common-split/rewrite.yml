@@ -6,6 +6,7 @@ description: Changes the packages, dependencies and BOM imports of a consumer of
 recipeList:
   - io.eventuate.common.split.MigrateToEventuateCommonId
   - io.eventuate.common.split.MigrateToEventuateCommonJson
+  - io.eventuate.common.split.MigrateToEventuateCommonCoordinationLeadership
 ---
 type: specs.openrewrite.org/v1beta/recipe
 name: io.eventuate.common.split.MigrateToEventuateCommonId
@@ -43,6 +44,33 @@ recipeList:
   - org.openrewrite.text.FindAndReplace:
       find: '^([ \t]*)(\w+) platform\("io\.eventuate\.common:eventuate-common-bom:[^"]*"\)$(?![\s\S]*eventuate-common-json-bom)'
       replace: "$0\n$1$2 platform(\"io.eventuate.common.json:eventuate-common-json-bom:\\\${eventuateCommonJsonVersion}\")"
+      regex: true
+      multiline: true
+      filePattern: '**/build.gradle'
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.eventuate.common.split.MigrateToEventuateCommonCoordinationLeadership
+displayName: Migrate to eventuate-common-coordination-leadership
+description: Changes the packages, dependencies and BOM imports of eventuate-common's Leadership API modules to those of eventuate-common-coordination-leadership. The ZooKeeper package, io.eventuate.coordination.leadership.zookeeper, is unchanged.
+recipeList:
+  # Not recursive, so that io.eventuate.coordination.leadership.zookeeper is unchanged
+  - org.openrewrite.java.ChangePackage:
+      oldPackageName: io.eventuate.coordination.leadership
+      newPackageName: io.eventuate.common.coordination.leadership
+      recursive: false
+  - org.openrewrite.java.ChangePackage:
+      oldPackageName: io.eventuate.coordination.leadership.tests
+      newPackageName: io.eventuate.common.coordination.leadership.tests
+      recursive: false
+  - org.openrewrite.text.FindAndReplace:
+      find: 'io\.eventuate\.common:(eventuate-common-coordination-leadership|eventuate-common-coordination-leadership-tests):\$\{?eventuateCommonVersion\}?'
+      replace: 'io.eventuate.common.coordination.leadership:$1:\$eventuateCommonCoordinationLeadershipVersion'
+      regex: true
+      filePattern: '**/build.gradle'
+  # Adds the BOM import after the eventuate-common-bom import, unless it is already there
+  - org.openrewrite.text.FindAndReplace:
+      find: '^([ \t]*)(\w+) platform\("io\.eventuate\.common:eventuate-common-bom:[^"]*"\)$(?![\s\S]*eventuate-common-coordination-leadership-bom)'
+      replace: "$0\n$1$2 platform(\"io.eventuate.common.coordination.leadership:eventuate-common-coordination-leadership-bom:\\\${eventuateCommonCoordinationLeadershipVersion}\")"
       regex: true
       multiline: true
       filePattern: '**/build.gradle'
