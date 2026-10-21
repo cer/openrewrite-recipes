@@ -3,6 +3,7 @@
 REFRESH_DEPS=""
 RECIPE_NAME=""
 CONFIG_FILE=""
+EXTRA_INIT_SCRIPT=()
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -19,9 +20,17 @@ while [[ $# -gt 0 ]]; do
             CONFIG_FILE="$2"
             shift 2
             ;;
+        --init-script)
+            if [ ! -f "$2" ]; then
+                echo "Error: init script not found: $2"
+                exit 1
+            fi
+            EXTRA_INIT_SCRIPT=(--init-script "$(cd "$(dirname "$2")" && pwd)/$(basename "$2")")
+            shift 2
+            ;;
         *)
             echo "Unknown option: $1"
-            echo "Usage: $0 [--refresh-dependencies] [--recipe recipeName] [--config-file path]"
+            echo "Usage: $0 [--refresh-dependencies] [--recipe recipeName] [--config-file path] [--init-script path]"
             exit 1
             ;;
     esac
@@ -84,6 +93,6 @@ EOF
 LOG_FILE="/var/tmp/openrewrite-$(date +%Y%m%d-%H%M%S).log"
 echo "Logging output to: $LOG_FILE"
 
-./gradlew --info ${REFRESH_DEPS} rewriteRun --init-script "$temp_init_file" \
+./gradlew --info ${REFRESH_DEPS} rewriteRun --init-script "$temp_init_file" "${EXTRA_INIT_SCRIPT[@]}" \
     -Drewrite.activeRecipe="$RECIPE_NAME" \
     -Dorg.gradle.jvmargs=-Xmx8G --stacktrace > "$LOG_FILE" 2> >(tee -a "$LOG_FILE" >&2)

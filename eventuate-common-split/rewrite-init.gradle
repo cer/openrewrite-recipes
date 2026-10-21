@@ -1,0 +1,30 @@
+// An init script for running the eventuate-common split recipe on a consumer whose
+// dependencies have already been migrated, with _run-rewrite-recipe.sh --init-script.
+
+allprojects {
+
+    // The consumer gets both an old io.eventuate.common module and the new module that
+    // declares the old module's capability, and Gradle fails with a capability conflict.
+    // Removing the old capability from the new modules puts both on the classpath: the
+    // consumer's unmigrated sources resolve against the old modules, and the migrated
+    // dependencies' APIs against the new ones.
+
+    dependencies.components.all { details ->
+        def id = details.id
+        if (id.group.startsWith('io.eventuate.common.')) {
+            details.allVariants {
+                withCapabilities {
+                    removeCapability('io.eventuate.common', id.name)
+                }
+            }
+        }
+    }
+
+    // A module whose unmigrated sources pass old types to a migrated dependency does not
+    // compile until the recipe has run. OpenRewrite needs the classes of the modules that
+    // do compile, so a compile error does not stop the recipe.
+
+    tasks.withType(JavaCompile).configureEach {
+        options.failOnError = false
+    }
+}

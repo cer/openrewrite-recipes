@@ -18,9 +18,13 @@ Run it from the consumer's root directory:
 [source,sh]
 ----
 $OPENREWRITE_DIR/_run-rewrite-recipe.sh \
+    --init-script $OPENREWRITE_DIR/eventuate-common-split/rewrite-init.gradle \
     --config-file $OPENREWRITE_DIR/eventuate-common-split/rewrite.yml \
     --recipe io.eventuate.common.split.MigrateToEventuateCommonSplit
 ----
+
+`rewrite-init.gradle` is needed when the consumer's dependencies, such as `eventuate-common-messaging`, have already been migrated.
+Without it, Gradle fails with a capability conflict between the old and new eventuate-common modules, or the consumer fails to compile, before the recipe runs.
 
 The recipe does not change `gradle.properties`.
 Add `eventuateCommonIdVersion` and `eventuateCommonJsonVersion` to it before building the consumer or running the recipe again.

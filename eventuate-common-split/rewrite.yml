@@ -150,6 +150,16 @@ recipeList:
       replace: 'io.eventuate.common.zookeeper:$1:\$eventuateCommonZookeeperVersion'
       regex: true
       filePattern: '**/build.gradle'
+  # EventuateKafkaCluster's public zookeeper field is an EventuateZookeeperContainer, so
+  # eventuate-messaging-kafka-testcontainers exports the module that AddEventuateCommonSplitDependencies added.
+  # Its consumers, such as eventuate-cdc-testcontainers, got the class from their own eventuate-common-testcontainers
+  # dependency, and AddDependency does not add a dependency that is already on the classpath transitively.
+  - org.openrewrite.text.FindAndReplace:
+      find: '^([ \t]*)implementation( "io\.eventuate\.common\.zookeeper:eventuate-common-zookeeper-testcontainers:)'
+      replace: '$1api$2'
+      regex: true
+      multiline: true
+      filePattern: '**/eventuate-messaging-kafka-testcontainers/build.gradle'
   - org.openrewrite.text.FindAndReplace:
       find: 'eventuate-zookeeper:\$\{?EVENTUATE_COMMON_VERSION(\??)\}?'
       replace: 'eventuate-zookeeper:\$\{EVENTUATE_COMMON_ZOOKEEPER_VERSION$1\}'
