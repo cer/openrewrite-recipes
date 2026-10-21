@@ -11,6 +11,8 @@ recipeList:
   - io.eventuate.common.split.MigrateToEventuateCommonCoordinationLeadership
   - io.eventuate.common.split.MigrateToEventuateCommonTestcontainers
   - io.eventuate.common.split.MigrateToEventuateCommonZookeeper
+  # After MigrateToEventuateCommonZookeeper, which adds EVENTUATE_COMMON_ZOOKEEPER_VERSION after the EVENTUATE_COMMON_VERSION line that this recipe replaces
+  - io.eventuate.common.split.MigrateToEventuateCommonDatabase
 ---
 type: specs.openrewrite.org/v1beta/recipe
 name: io.eventuate.common.split.AddEventuateCommonSplitDependencies
@@ -23,6 +25,22 @@ recipeList:
       artifactId: eventuate-common-zookeeper-testcontainers
       version: $eventuateCommonZookeeperVersion
       onlyIfUsing: io.eventuate.common.testcontainers.EventuateZookeeperContainer
+  # The three patterns match the 16 database container classes and none of the base classes
+  - org.openrewrite.gradle.AddDependency:
+      groupId: io.eventuate.common.database
+      artifactId: eventuate-common-database-testcontainers
+      version: $eventuateCommonDatabaseVersion
+      onlyIfUsing: io.eventuate.common.testcontainers.*Database*
+  - org.openrewrite.gradle.AddDependency:
+      groupId: io.eventuate.common.database
+      artifactId: eventuate-common-database-testcontainers
+      version: $eventuateCommonDatabaseVersion
+      onlyIfUsing: io.eventuate.common.testcontainers.*SqlContainer
+  - org.openrewrite.gradle.AddDependency:
+      groupId: io.eventuate.common.database
+      artifactId: eventuate-common-database-testcontainers
+      version: $eventuateCommonDatabaseVersion
+      onlyIfUsing: io.eventuate.common.testcontainers.*PostgresContainer
 ---
 type: specs.openrewrite.org/v1beta/recipe
 name: io.eventuate.common.split.MigrateToEventuateCommonId
@@ -145,6 +163,129 @@ recipeList:
   - org.openrewrite.text.FindAndReplace:
       find: '^([ \t]*)(\w+) platform\("io\.eventuate\.common:eventuate-common-bom:[^"]*"\)$(?![\s\S]*eventuate-common-zookeeper-bom)'
       replace: "$0\n$1$2 platform(\"io.eventuate.common.zookeeper:eventuate-common-zookeeper-bom:\\\${eventuateCommonZookeeperVersion}\")"
+      regex: true
+      multiline: true
+      filePattern: '**/build.gradle'
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.eventuate.common.split.MigrateToEventuateCommonDatabase
+displayName: Migrate to eventuate-common-database
+description: Changes the packages, dependencies, BOM imports and image versions of eventuate-common's database modules, database containers and database images to those of eventuate-common-database.
+recipeList:
+  # Not recursive, and each child package before its parent, so that a consumer's own subpackage, such as eventuate-workflows' io.eventuate.common.flyway.initialization, is unchanged
+  - org.openrewrite.java.ChangePackage:
+      oldPackageName: io.eventuate.common.jdbc.sqldialect
+      newPackageName: io.eventuate.common.database.jdbc.sqldialect
+      recursive: false
+  - org.openrewrite.java.ChangePackage:
+      oldPackageName: io.eventuate.common.jdbc.tests
+      newPackageName: io.eventuate.common.database.jdbc.tests
+      recursive: false
+  - org.openrewrite.java.ChangePackage:
+      oldPackageName: io.eventuate.common.jdbc
+      newPackageName: io.eventuate.common.database.jdbc
+      recursive: false
+  - org.openrewrite.java.ChangePackage:
+      oldPackageName: io.eventuate.common.reactive.jdbc
+      newPackageName: io.eventuate.common.database.reactive.jdbc
+      recursive: false
+  - org.openrewrite.java.ChangePackage:
+      oldPackageName: io.eventuate.common.spring.jdbc.sqldialect
+      newPackageName: io.eventuate.common.database.spring.jdbc.sqldialect
+      recursive: false
+  - org.openrewrite.java.ChangePackage:
+      oldPackageName: io.eventuate.common.spring.jdbc.reactive
+      newPackageName: io.eventuate.common.database.spring.jdbc.reactive
+      recursive: false
+  - org.openrewrite.java.ChangePackage:
+      oldPackageName: io.eventuate.common.spring.jdbc
+      newPackageName: io.eventuate.common.database.spring.jdbc
+      recursive: false
+  - org.openrewrite.java.ChangePackage:
+      oldPackageName: io.eventuate.common.inmemorydatabase
+      newPackageName: io.eventuate.common.database.inmemorydatabase
+      recursive: false
+  - org.openrewrite.java.ChangePackage:
+      oldPackageName: io.eventuate.common.common.spring.inmemorydatabase
+      newPackageName: io.eventuate.common.database.common.spring.inmemorydatabase
+      recursive: false
+  - org.openrewrite.java.ChangePackage:
+      oldPackageName: io.eventuate.common.spring.inmemorydatabase
+      newPackageName: io.eventuate.common.database.spring.inmemorydatabase
+      recursive: false
+  - org.openrewrite.java.ChangePackage:
+      oldPackageName: io.eventuate.common.flyway
+      newPackageName: io.eventuate.common.database.flyway
+      recursive: false
+  # ChangeType rather than ChangePackage, because the base classes stay in io.eventuate.common.testcontainers
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: io.eventuate.common.testcontainers.AbstractEventuateMySqlContainer
+      newFullyQualifiedTypeName: io.eventuate.common.database.testcontainers.AbstractEventuateMySqlContainer
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: io.eventuate.common.testcontainers.AbstractEventuatePostgresContainer
+      newFullyQualifiedTypeName: io.eventuate.common.database.testcontainers.AbstractEventuatePostgresContainer
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: io.eventuate.common.testcontainers.AbstractEventuateMsSqlContainer
+      newFullyQualifiedTypeName: io.eventuate.common.database.testcontainers.AbstractEventuateMsSqlContainer
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: io.eventuate.common.testcontainers.EventuateMySqlContainer
+      newFullyQualifiedTypeName: io.eventuate.common.database.testcontainers.EventuateMySqlContainer
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: io.eventuate.common.testcontainers.EventuatePostgresContainer
+      newFullyQualifiedTypeName: io.eventuate.common.database.testcontainers.EventuatePostgresContainer
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: io.eventuate.common.testcontainers.EventuateVanillaMySqlContainer
+      newFullyQualifiedTypeName: io.eventuate.common.database.testcontainers.EventuateVanillaMySqlContainer
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: io.eventuate.common.testcontainers.EventuateVanillaPostgresContainer
+      newFullyQualifiedTypeName: io.eventuate.common.database.testcontainers.EventuateVanillaPostgresContainer
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: io.eventuate.common.testcontainers.EventuateVanillaMsSqlContainer
+      newFullyQualifiedTypeName: io.eventuate.common.database.testcontainers.EventuateVanillaMsSqlContainer
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: io.eventuate.common.testcontainers.EventuateDatabaseContainer
+      newFullyQualifiedTypeName: io.eventuate.common.database.testcontainers.EventuateDatabaseContainer
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: io.eventuate.common.testcontainers.DatabaseContainerFactory
+      newFullyQualifiedTypeName: io.eventuate.common.database.testcontainers.DatabaseContainerFactory
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: io.eventuate.common.testcontainers.DatabaseContainerType
+      newFullyQualifiedTypeName: io.eventuate.common.database.testcontainers.DatabaseContainerType
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: io.eventuate.common.testcontainers.DatabaseContainerTypeRegistry
+      newFullyQualifiedTypeName: io.eventuate.common.database.testcontainers.DatabaseContainerTypeRegistry
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: io.eventuate.common.testcontainers.MySqlDatabaseType
+      newFullyQualifiedTypeName: io.eventuate.common.database.testcontainers.MySqlDatabaseType
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: io.eventuate.common.testcontainers.PostgresDatabaseType
+      newFullyQualifiedTypeName: io.eventuate.common.database.testcontainers.PostgresDatabaseType
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: io.eventuate.common.testcontainers.MsSqlDatabaseType
+      newFullyQualifiedTypeName: io.eventuate.common.database.testcontainers.MsSqlDatabaseType
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: io.eventuate.common.testcontainers.DatabaseCredentials
+      newFullyQualifiedTypeName: io.eventuate.common.database.testcontainers.DatabaseCredentials
+  - org.openrewrite.text.FindAndReplace:
+      find: 'io\.eventuate\.common:(eventuate-common-(?:jdbc|jdbc-tests|reactive-jdbc|spring-jdbc|common-spring-jdbc|spring-reactive-jdbc|in-memory-database|common-spring-in-memory-database|spring-in-memory-database|flyway)):\$\{?eventuateCommonVersion\}?'
+      replace: 'io.eventuate.common.database:$1:\$eventuateCommonDatabaseVersion'
+      regex: true
+      filePattern: '**/build.gradle'
+  - org.openrewrite.text.FindAndReplace:
+      find: 'eventuate-(mysql8|postgres|mssql|vanilla-mysql8|vanilla-postgres):\$\{?EVENTUATE_COMMON_VERSION(\??)\}?'
+      replace: 'eventuate-$1:\$\{EVENTUATE_COMMON_DATABASE_VERSION$2\}'
+      regex: true
+      filePattern: '**/docker-compose*.yml'
+  # Replaces EVENTUATE_COMMON_VERSION, which no image uses once the ZooKeeper and database images have their own versions
+  - org.openrewrite.text.FindAndReplace:
+      find: 'environment\.put "EVENTUATE_COMMON_VERSION", eventuateCommonImageVersion'
+      replace: 'environment.put "EVENTUATE_COMMON_DATABASE_VERSION", eventuateCommonDatabaseImageVersion'
+      regex: true
+      filePattern: '**/build.gradle'
+  # Adds the BOM import after the eventuate-common-bom import, unless it is already there
+  - org.openrewrite.text.FindAndReplace:
+      find: '^([ \t]*)(\w+) platform\("io\.eventuate\.common:eventuate-common-bom:[^"]*"\)$(?![\s\S]*eventuate-common-database-bom)'
+      replace: "$0\n$1$2 platform(\"io.eventuate.common.database:eventuate-common-database-bom:\\\${eventuateCommonDatabaseVersion}\")"
       regex: true
       multiline: true
       filePattern: '**/build.gradle'
