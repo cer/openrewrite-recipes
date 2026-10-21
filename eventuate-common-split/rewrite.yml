@@ -4,10 +4,25 @@ name: io.eventuate.common.split.MigrateToEventuateCommonSplit
 displayName: Migrate from eventuate-common to the repositories split from it
 description: Changes the packages, dependencies and BOM imports of a consumer of eventuate-common to those of the repositories split from it.
 recipeList:
+  # First, because a FindAndReplace that changes a build.gradle turns it into plain text, which AddDependency cannot change
+  - io.eventuate.common.split.AddEventuateCommonSplitDependencies
   - io.eventuate.common.split.MigrateToEventuateCommonId
   - io.eventuate.common.split.MigrateToEventuateCommonJson
   - io.eventuate.common.split.MigrateToEventuateCommonCoordinationLeadership
   - io.eventuate.common.split.MigrateToEventuateCommonTestcontainers
+  - io.eventuate.common.split.MigrateToEventuateCommonZookeeper
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.eventuate.common.split.AddEventuateCommonSplitDependencies
+displayName: Add the dependencies on the Testcontainers modules split from eventuate-common
+description: Adds a dependency on the Testcontainers module of a repository split from eventuate-common to a module that uses one of its containers.
+recipeList:
+  # Scanned before the ChangeType rules change the type, so it matches the old type
+  - org.openrewrite.gradle.AddDependency:
+      groupId: io.eventuate.common.zookeeper
+      artifactId: eventuate-common-zookeeper-testcontainers
+      version: $eventuateCommonZookeeperVersion
+      onlyIfUsing: io.eventuate.common.testcontainers.EventuateZookeeperContainer
 ---
 type: specs.openrewrite.org/v1beta/recipe
 name: io.eventuate.common.split.MigrateToEventuateCommonId
@@ -90,6 +105,46 @@ recipeList:
   - org.openrewrite.text.FindAndReplace:
       find: '^([ \t]*)(\w+) platform\("io\.eventuate\.common:eventuate-common-bom:[^"]*"\)$(?![\s\S]*eventuate-common-testcontainers-bom)'
       replace: "$0\n$1$2 platform(\"io.eventuate.common.testcontainers:eventuate-common-testcontainers-bom:\\\${eventuateCommonTestcontainersVersion}\")"
+      regex: true
+      multiline: true
+      filePattern: '**/build.gradle'
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.eventuate.common.split.MigrateToEventuateCommonZookeeper
+displayName: Migrate to eventuate-common-zookeeper
+description: Changes the packages, dependencies, BOM imports and image versions of eventuate-common's ZooKeeper leadership module, ZooKeeper container and eventuate-zookeeper image to those of eventuate-common-zookeeper.
+recipeList:
+  # ChangeType rather than ChangePackage, because eventuate-messaging-kafka's own classes, such as KafkaLeaderSelector, are in io.eventuate.coordination.leadership.zookeeper
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: io.eventuate.coordination.leadership.zookeeper.ZkLeaderSelector
+      newFullyQualifiedTypeName: io.eventuate.common.zookeeper.ZkLeaderSelector
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: io.eventuate.coordination.leadership.zookeeper.ZkLeadershipController
+      newFullyQualifiedTypeName: io.eventuate.common.zookeeper.ZkLeadershipController
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: io.eventuate.common.testcontainers.EventuateZookeeperContainer
+      newFullyQualifiedTypeName: io.eventuate.common.zookeeper.testcontainers.EventuateZookeeperContainer
+  - org.openrewrite.text.FindAndReplace:
+      find: 'io\.eventuate\.common:(eventuate-common-coordination-leadership-zookeeper):\$\{?eventuateCommonVersion\}?'
+      replace: 'io.eventuate.common.zookeeper:$1:\$eventuateCommonZookeeperVersion'
+      regex: true
+      filePattern: '**/build.gradle'
+  - org.openrewrite.text.FindAndReplace:
+      find: 'eventuate-zookeeper:\$\{?EVENTUATE_COMMON_VERSION(\??)\}?'
+      replace: 'eventuate-zookeeper:\$\{EVENTUATE_COMMON_ZOOKEEPER_VERSION$1\}'
+      regex: true
+      filePattern: '**/docker-compose*.yml'
+  # Passes the ZooKeeper image version to Compose after EVENTUATE_COMMON_VERSION, unless it is already passed
+  - org.openrewrite.text.FindAndReplace:
+      find: '^([ \t]*)environment\.put "EVENTUATE_COMMON_VERSION", eventuateCommonImageVersion$(?![\s\S]*EVENTUATE_COMMON_ZOOKEEPER_VERSION)'
+      replace: "$0\n$1environment.put \"EVENTUATE_COMMON_ZOOKEEPER_VERSION\", eventuateCommonZookeeperImageVersion"
+      regex: true
+      multiline: true
+      filePattern: '**/build.gradle'
+  # Adds the BOM import after the eventuate-common-bom import, unless it is already there
+  - org.openrewrite.text.FindAndReplace:
+      find: '^([ \t]*)(\w+) platform\("io\.eventuate\.common:eventuate-common-bom:[^"]*"\)$(?![\s\S]*eventuate-common-zookeeper-bom)'
+      replace: "$0\n$1$2 platform(\"io.eventuate.common.zookeeper:eventuate-common-zookeeper-bom:\\\${eventuateCommonZookeeperVersion}\")"
       regex: true
       multiline: true
       filePattern: '**/build.gradle'
