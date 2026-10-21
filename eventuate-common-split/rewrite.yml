@@ -7,6 +7,7 @@ recipeList:
   - io.eventuate.common.split.MigrateToEventuateCommonId
   - io.eventuate.common.split.MigrateToEventuateCommonJson
   - io.eventuate.common.split.MigrateToEventuateCommonCoordinationLeadership
+  - io.eventuate.common.split.MigrateToEventuateCommonTestcontainers
 ---
 type: specs.openrewrite.org/v1beta/recipe
 name: io.eventuate.common.split.MigrateToEventuateCommonId
@@ -71,6 +72,24 @@ recipeList:
   - org.openrewrite.text.FindAndReplace:
       find: '^([ \t]*)(\w+) platform\("io\.eventuate\.common:eventuate-common-bom:[^"]*"\)$(?![\s\S]*eventuate-common-coordination-leadership-bom)'
       replace: "$0\n$1$2 platform(\"io.eventuate.common.coordination.leadership:eventuate-common-coordination-leadership-bom:\\\${eventuateCommonCoordinationLeadershipVersion}\")"
+      regex: true
+      multiline: true
+      filePattern: '**/build.gradle'
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.eventuate.common.split.MigrateToEventuateCommonTestcontainers
+displayName: Migrate to eventuate-common-testcontainers
+description: Changes the dependencies and BOM imports of eventuate-common's Testcontainers base module to those of eventuate-common-testcontainers. The package of its base classes, io.eventuate.common.testcontainers, is unchanged.
+recipeList:
+  - org.openrewrite.text.FindAndReplace:
+      find: 'io\.eventuate\.common:(eventuate-common-testcontainers):\$\{?eventuateCommonVersion\}?'
+      replace: 'io.eventuate.common.testcontainers:$1:\$eventuateCommonTestcontainersVersion'
+      regex: true
+      filePattern: '**/build.gradle'
+  # Adds the BOM import after the eventuate-common-bom import, unless it is already there
+  - org.openrewrite.text.FindAndReplace:
+      find: '^([ \t]*)(\w+) platform\("io\.eventuate\.common:eventuate-common-bom:[^"]*"\)$(?![\s\S]*eventuate-common-testcontainers-bom)'
+      replace: "$0\n$1$2 platform(\"io.eventuate.common.testcontainers:eventuate-common-testcontainers-bom:\\\${eventuateCommonTestcontainersVersion}\")"
       regex: true
       multiline: true
       filePattern: '**/build.gradle'
